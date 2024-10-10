@@ -5,35 +5,6 @@
 	import Legend from './Legend.svelte';
 	import 'leaflet/dist/leaflet.css';
 
-	const lerp = (x, y, a) => x * (1 - a) + y * a;
-	const invlerp = (x, y, a) => clamp((a - x) / (y - x));
-	const clamp = (a, min = 0, max = 1) => Math.min(max, Math.max(min, a));
-	const range = (x1, y1, x2, y2, a) => lerp(x2, y2, invlerp(x1, y1, a));
-	const getCentroid2 = function (arr) {
-		var twoTimesSignedArea = 0;
-		var cxTimes6SignedArea = 0;
-		var cyTimes6SignedArea = 0;
-
-		var length = arr.length;
-
-		var x = function (i) {
-			return arr[i % length][0];
-		};
-		var y = function (i) {
-			return arr[i % length][1];
-		};
-		// console.log(arr);
-		// console.log(x[0], y[0]);
-		for (var i = 0; i < arr.length; i++) {
-			var twoSA = x(i) * y(i + 1) - x(i + 1) * y(i);
-			twoTimesSignedArea += twoSA;
-			cxTimes6SignedArea += (x(i) + x(i + 1)) * twoSA;
-			cyTimes6SignedArea += (y(i) + y(i + 1)) * twoSA;
-		}
-		var sixSignedArea = 3 * twoTimesSignedArea;
-		return [cxTimes6SignedArea / sixSignedArea, cyTimes6SignedArea / sixSignedArea];
-	};
-
 	onMount(async () => {
 		if (browser) {
 			const leaflet = await import('leaflet');
@@ -49,19 +20,8 @@
 				})
 				.setView([34, 69], 7);
 			map.scrollWheelZoom = true;
-			// map.dragging.disable();
-
-			// leaflet
-			// 	.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			// 		attribution:
-			// 			'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-			// 	})
-			// 	.addTo(map);
 			let myStyle = {
-				// color: '#fce1cb',
-				// color: '#ff7800',
-
-				fillColor: '#fce1cb',
+				fillColor: '#fce10b',
 				// fillColor: '#fff1dd',
 				weight: 0.3,
 				fillOpacity: 1
@@ -77,18 +37,41 @@
 			total_individuals = total_individuals_all;
 
 			let individuals = Object.values(stats)
-				.map((itm) => itm.individuals)
+				.map((itm) => itm.families)
 				.sort((a, b) => a - b);
 			let min = individuals[0];
 			let max = individuals[individuals.length - 1];
 			let count = individuals.length;
-
 			map.eachLayer((layer) => {
+				console.log(layer._leaflet_id);
 				if (layer.feature && layer.feature.properties)
 					if (stats[layer.feature.properties.ADM1_PCODE]) {
-						let _individs = stats[layer.feature.properties.ADM1_PCODE].individuals;
-						let _color = colors[Math.round(invlerp(min, max, _individs) * 5)];
+						let _individs = stats[layer.feature.properties.ADM1_PCODE].families;
+						function getIndexBetween0And31(n, min, max) {
+							// Ensure the number is within the range
+							let number = Math.max(min, Math.min(max, n));
+
+							// Handle edge cases
+							if (number === min) return 0;
+							if (number === max) return 31;
+
+							// Apply logarithmic scaling
+							const logMin = Math.log(min + 1); // Add 1 to handle case where min might be 0
+							const logMax = Math.log(max + 1);
+							const logValue = Math.log(number + 1);
+
+							// Calculate the percentage on the log scale
+							const percentage = (logValue - logMin) / (logMax - logMin);
+
+							// Map the percentage to a number between 0 and 31
+							return Math.round(percentage * 31);
+						}
+						let _num = getIndexBetween0And31(_individs, min, max);
+						let _color = colors[_num];
+						_layers[layer._leaflet_id] = _color;
+						// if (!_color) _color = colors[31];
 						// let _color = colors[Math.round(range(min, max, 1, 8, _individs))];
+						// console.log(_individs, _color);
 						layer.setStyle({ fillColor: _color, fillOpacity: 1 });
 						// let center = getCentroid2(layer.feature.geometry.coordinates[0]);
 
@@ -123,11 +106,12 @@
 	const onFeature = (feature, layer) => {
 		const clicked = (feature, layer) => {
 			layer.setStyle({
-				// fillColor: '#fce1cb',
+				fillColor: '#fbe1cb',
 
 				fillOpacity: 0.5
-				// weight: 1
+				// weight: 9
 			});
+			console.log(layer.options);
 
 			let p_code = feature.properties.ADM1_PCODE;
 			province = provinces[p_code].join(' - ');
@@ -152,7 +136,7 @@
 
 		layer.on('mouseout', function () {
 			this.setStyle({
-				// fillColor: '#fce1cb',
+				fillColor: _layers[this._leaflet_id],
 				fillOpacity: 1
 				// weight: 0.3
 			});
@@ -167,17 +151,50 @@
 	};
 	//jmp
 
+	// let colors = [
+	// 	'#88c8f7',
+	// 	// '#74c1f5',
+	// 	'#61b9f4',
+	// 	// '#4db1f2',
+	// 	'#3aaaf1',
+	// 	// '#27a2ef',
+	// 	'#139aee',
+	// 	'#0093ec'
+	// ];
 	let colors = [
-		'#88c8f7',
-		// '#74c1f5',
-		'#61b9f4',
-		// '#4db1f2',
-		'#3aaaf1',
-		// '#27a2ef',
-		'#139aee',
-		'#0093ec'
+		'#9fd2f8',
+		'#9acdf4',
+		'#95c9ef',
+		'#90c4eb',
+		'#8bbfe6',
+		'#86bae2',
+		'#81b5dd',
+		'#7cb0d9',
+		'#77abd4',
+		'#72a6d0',
+		'#6da1cb',
+		'#689cc7',
+		'#6397c2',
+		'#5e92be',
+		'#598db9',
+		'#5488b5',
+		'#4f83b0',
+		'#4a7eac',
+		'#4579a7',
+		'#4074a3',
+		'#3b6f9e',
+		'#366a9a',
+		'#316595',
+		'#2c6091',
+		'#275b8c',
+		'#225688',
+		'#1d5183',
+		'#184c7f',
+		'#13477a',
+		'#0e4276',
+		'#093d71',
+		'#04386d'
 	];
-
 	export let data;
 	export let provinces;
 	export let districts;
@@ -189,6 +206,7 @@
 	let province = 'Afghanistan - افغانستان';
 	let red = true;
 	let width;
+	let _layers = {};
 </script>
 
 <main>
